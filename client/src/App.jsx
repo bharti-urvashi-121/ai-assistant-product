@@ -25,6 +25,9 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
 
   async function loadDocuments(authToken = token) {
     if (!authToken) return;
@@ -138,6 +141,51 @@ export default function App() {
       setError(err.message || "Unable to upload the document.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleAsk(event, suggestedQuestion) {
+    event?.preventDefault();
+
+    const questionText = (suggestedQuestion ?? question).trim();
+    if (!questionText || asking) return;
+
+    setQuestion("");
+    setError("");
+    setNotice("");
+    setAsking(true);
+    setChatMessages((previous) => [
+      ...previous,
+      { role: "user", content: questionText },
+    ]);
+
+    try {
+      const response = await fetch(`${API_URL}/questions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question: questionText }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Could not get an answer.");
+      }
+
+      setChatMessages((previous) => [
+        ...previous,
+        {
+          role: "assistant",
+          content: data.answer || "No answer was returned.",
+          sources: data.sources || [],
+        },
+      ]);
+    } catch (err) {
+      setError(err.message || "Unable to connect to Knowflow.");
+    } finally {
+      setAsking(false);
     }
   }
 
@@ -265,10 +313,16 @@ export default function App() {
             <span>▤</span> Documents
             <span className="nav-count">{documents.length}</span>
           </button>
-          <div className="nav-item disabled-nav" title="Coming next">
+          <button
+            className={page === "ask" ? "nav-item active" : "nav-item"}
+            onClick={() => {
+              setPage("ask");
+              setError("");
+              setNotice("");
+            }}
+          >
             <span>✧</span> Ask Knowflow
-            <span className="coming-soon">Soon</span>
-          </div>
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -291,7 +345,11 @@ export default function App() {
         <header className="topbar">
           <div className="breadcrumb">
             Workspace <span>/</span>{" "}
-            {page === "documents" ? "Documents" : "Overview"}
+            {page === "documents"
+              ? "Documents"
+              : page === "ask"
+                ? "Ask Knowflow"
+                : "Overview"}
           </div>
           <div className="topbar-right">
             <span className="connection-dot" />
@@ -384,7 +442,7 @@ export default function App() {
                 <DocumentList documents={documents.slice(0, 4)} loading={loading} />
               </section>
             </>
-          ) : (
+          ) : page === "documents" ? (
             <>
               <section className="welcome-section">
                 <div>
@@ -453,6 +511,113 @@ export default function App() {
                 <DocumentList documents={documents} loading={loading} />
               </section>
             </>
+          ) : (
+            <section className="ask-page">
+              <div className="welcome-section">
+                <div>
+                  <span className="eyebrow">YOUR KNOWLEDGE, CONNECTED</span>
+                  <h1>Ask Knowflow</h1>
+                  <p>Get answers from the documents in your workspace.</p>
+                </div>
+                <span className="ask-status">✧ AI assistant</span>
+              </div>
+
+              <div className="content-card chat-card">
+                <div className="chat-intro">
+                  <div className="chat-logo">K</div>
+                  <h2>What would you like to know?</h2>
+                  <p>
+                    Ask a question about your uploaded documents. Knowflow will
+                    answer using relevant document excerpts.
+                  </p>
+                </div>
+
+                {chatMessages.length === 0 && (
+                  <div className="suggestion-grid">
+                    {[
+                      "What is Knowflow?",
+                      "Who is Knowflow designed for?",
+                      "How does document processing work?",
+                      "What technologies does Knowflow use?",
+                    ].map((suggestion) => (
+                      <button
+                        type="button"
+                        className="suggestion-card"
+                        key={suggestion}
+                        disabled={asking}
+                        onClick={(event) => handleAsk(event, suggestion)}
+                      >
+                        <span>✧</span>
+                        {suggestion}
+                        <b>↗</b>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {chatMessages.length > 0 && (
+                  <div className="chat-messages" aria-live="polite">
+                    {chatMessages.map((message, index) => (
+                      <article
+                        className={`chat-message ${message.role}`}
+                        key={`${index}-${message.role}`}
+                      >
+                        <div className="message-avatar">
+                          {message.role === "assistant" ? "K" : "U"}
+                        </div>
+                        <div className="message-body">
+                          <strong>
+                            {message.role === "assistant" ? "Knowflow" : "You"}
+                          </strong>
+                          <p>{message.content}</p>
+                          {message.sources?.length > 0 && (
+                            <div className="answer-sources">
+                              <span>Sources</span>
+                              {message.sources.map((source, sourceIndex) => (
+                                <span
+                                  className="source-chip"
+                                  key={`${source.documentId || source.filename}-${sourceIndex}`}
+                                >
+                                  ▤ {source.filename}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                    {asking && (
+                      <div className="thinking-indicator">
+                        <span className="chat-logo">K</span>
+                        Knowflow is thinking…
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <form className="chat-composer" onSubmit={handleAsk}>
+                  <input
+                    aria-label="Ask a question"
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                    placeholder="Ask anything about your documents..."
+                    maxLength={500}
+                    disabled={asking}
+                  />
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={asking || !question.trim()}
+                  >
+                    {asking ? "Thinking..." : "Ask →"}
+                  </button>
+                </form>
+                <p className="chat-disclaimer">
+                  Answers are generated from your available documents. Verify
+                  important information.
+                </p>
+              </div>
+            </section>
           )}
 
           <footer className="page-footer">

@@ -4,6 +4,7 @@ import "dotenv/config.js";
 import pool from "./config/database.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import documentRoutes from "./modules/documents/documents.routes.js";
+import questionRoutes from "./modules/questions/questions.routes.js";
 import cors from "cors";
 
 //dotenv.config();
@@ -17,6 +18,8 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5174",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -24,6 +27,7 @@ app.use(
 );
 app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/questions", questionRoutes);
 
 
 app.get("/api/health", (req, res) => {
