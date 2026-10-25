@@ -3,6 +3,7 @@ import express from "express";
 import "dotenv/config.js";
 import pool from "./config/database.js";
 import authRoutes from "./modules/auth/auth.routes.js";
+import documentRoutes from "./modules/documents/documents.routes.js";
 import cors from "cors";
 
 //dotenv.config();
@@ -22,6 +23,7 @@ app.use(
   })
 );
 app.use("/api/auth", authRoutes);
+app.use("/api/documents", documentRoutes);
 
 
 app.get("/api/health", (req, res) => {

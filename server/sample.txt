@@ -1,0 +1,3 @@
+﻿Knowflow is an AI knowledge assistant for teams.
+It stores company documents and helps users find relevant information.
+Documents are organized by workspace to protect company data.
